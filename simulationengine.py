@@ -8,64 +8,69 @@ class SimulationEngine:
 
     def is_simulation_complete(self) -> bool:
         """Checks if all drones have reached their final destination."""
-        for drone in self.drones:
-            if drone.status != DroneStatus.DELIVERED:
-                return False
-
-        return True
+        return all(drone.status == DroneStatus.DELIVERED for drone in self.drones)
 
     def process_arriving_drones(self) -> None:
         """Handles drones arriving at their destination zone."""
         for drone in self.drones:
             if drone.status == DroneStatus.IN_TRANSIT:
                 drone.transit_timer -= 1
-
                 if drone.transit_timer <= 0:
+                    # Release connection and add drone to new zone
+                    self.stats.update_connection(drone.current_zone, drone.transit_destination, -1)
                     drone.current_zone = drone.transit_destination
-                    drone.status = DroneStatus.WAITING
-
-                    print(f"Turn {self.stats.turn_count}: {drone.name} "
-                          f"arrived at {drone.current_zone}")
+                    self.stats.update_zone(drone.current_zone, 1)
+                    drone.status = DroneStatus.ARRIVED
 
     def process_departing_drones(self) -> None:
-        """Handles drones departing from their current zone to the next."""
-
+        """Handles drones departing from their current zone."""
         for drone in self.drones:
             if drone.status == DroneStatus.WAITING:
-
                 if not drone.path:
+                    self.stats.update_zone(drone.current_zone, -1)
                     drone.status = DroneStatus.DELIVERED
                     print(f"Turn {self.stats.turn_count}: {drone.name} is DELIVERED!")
                     continue
 
                 next_zone = drone.path[0]
-                if (
-                    self.stats.has_connection_space(drone.current_zone, next_zone)
-                    and self.stats.has_zone_space(next_zone)
-                ):
+                if (self.stats.has_connection_space(drone.current_zone, next_zone)
+                    and self.stats.has_zone_space(next_zone)):
+                    
                     self.stats.update_zone(drone.current_zone, -1)
                     self.stats.update_connection(drone.current_zone, next_zone, 1)
 
                     drone.transit_destination = next_zone
                     drone.status = DroneStatus.IN_TRANSIT
-
-                    for conn in self.stats.graph.get_neighbors(drone.current_zone):
-                        if conn.zone_1 == next_zone or conn.zone_2 == next_zone:
-                            if 
-                            break
-                    drone.transit_timer = 1
+                     
+                    zone_obj = self.stats.graph.get_zone(next_zone)
+                    drone.transit_timer = 2 if zone_obj.zone_type == "restricted" else 1
                     drone.path.pop(0)
 
-                    print(f"Turn {self.stats.turn_count}: {drone.name} "
-                          f"departing from {drone.current_zone} to {next_zone}")
-
+    def finalize_arrivals(self) -> None:
+        """Promotes arrived drones to WAITING state for next turn."""
+        for drone in self.drones:
+            if drone.status == DroneStatus.ARRIVED:
+                drone.status = DroneStatus.WAITING
 
     def print_turn_summary(self) -> None:
-        pass
+        """Prints the simulation state for the current turn."""
+        sim_output = []
+        for drone in self.drones:
+            if drone.status == DroneStatus.IN_TRANSIT:
+                dest = drone.transit_destination
+                dest_obj = self.stats.graph.get_zone(dest)
+                if dest_obj.zone_type == "restricted":
+                    sim_output.append(f"{drone.name}-{drone.current_zone}-{dest}")
+                else:
+                    sim_output.append(f"{drone.name}-{dest}")
+        if sim_output:
+            print(" ".join(sim_output))
 
     def run_engine(self) -> None:
+        """Main execution loop."""
         while not self.is_simulation_complete():
             self.stats.turn_count += 1
-
             self.process_arriving_drones()
+            self.finalize_arrivals()
             self.process_departing_drones()
+            self.print_turn_summary()

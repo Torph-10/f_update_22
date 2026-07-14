@@ -7,6 +7,7 @@ class DroneStatus(Enum):
     WAITING = "WAITING"
     IN_TRANSIT = "IN_TRANSIT"
     DELIVERED = "DELIVERED"
+    ARRIVED = "ARRIVED"
 
 class Drone:
     """Tracks the individual state and planned path of a single drone."""
