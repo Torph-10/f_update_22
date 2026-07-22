@@ -1,7 +1,10 @@
-from simulationstats import DroneStatus, Drone, SimulationState
+from simulationstats import Drone, DroneStatus, SimulationState
 
 
 class SimulationEngine:
+    """Runs the turn-by-turn drone simulation over a pre-planned set
+    of paths, enforcing zone and connection capacity as drones move."""
+
     def __init__(self, stats: SimulationState, drones: list[Drone]) -> None:
         self.stats: SimulationState = stats
         self.drones: list[Drone] = drones
@@ -27,44 +30,48 @@ class SimulationEngine:
     def process_departing_drones(self) -> None:
         """Handles drones departing from their current zone."""
         for drone in self.drones:
-            if drone.status == DroneStatus.WAITING:
-                if not drone.path:
-                    self.stats.update_zone(drone.current_zone, -1)
-                    drone.status = DroneStatus.DELIVERED
-                    continue
+            if drone.status != DroneStatus.WAITING:
+                continue
 
-                next_zone = drone.path[0]
+            if not drone.path:
+                self.stats.update_zone(drone.current_zone, -1)
+                drone.status = DroneStatus.DELIVERED
+                print(
+                    f"Turn {self.stats.turn_count}: "
+                    f"{drone.name} is DELIVERED!"
+                )
+                continue
 
-                if next_zone == drone.current_zone:
-                    # Explicit "wait in place" checkpoint produced by the
-                    # planner (e.g. a zone was full this turn). Consume it
-                    # without touching zone/connection occupancy: routing
-                    # this through has_connection_space would rely on a
-                    # zone always trivially "connecting" to itself via any
-                    # of its real neighbors, and would incorrectly cost 2
-                    # turns if the zone happens to be restricted.
-                    drone.path.pop(0)
-                    continue
+            next_zone = drone.path[0]
 
-                if (
-                    self.stats.has_connection_space(drone.current_zone, next_zone)
-                    and self.stats.has_zone_space(next_zone)
-                ):
+            if next_zone == drone.current_zone:
+                # Explicit "wait in place" checkpoint produced by the
+                # planner (e.g. a zone was full this turn). Consume it
+                # without touching zone/connection occupancy: routing
+                # this through has_connection_space would rely on a
+                # zone always trivially "connecting" to itself via any
+                # of its real neighbors, and would incorrectly cost 2
+                # turns if the zone happens to be restricted.
+                drone.path.pop(0)
+                continue
 
-                    self.stats.update_zone(drone.current_zone, -1)
-                    self.stats.update_connection(
-                        drone.current_zone, next_zone, 1
-                    )
+            has_conn_space = self.stats.has_connection_space(
+                drone.current_zone, next_zone
+            )
+            if has_conn_space and self.stats.has_zone_space(next_zone):
+                self.stats.update_zone(drone.current_zone, -1)
+                self.stats.update_connection(
+                    drone.current_zone, next_zone, 1
+                )
 
-                    drone.transit_destination = next_zone
-                    self.stats.update_zone(next_zone, 1)
-                    drone.status = DroneStatus.IN_TRANSIT
+                drone.transit_destination = next_zone
+                self.stats.update_zone(next_zone, 1)
+                drone.status = DroneStatus.IN_TRANSIT
 
-                    zone_obj = self.stats.graph.get_zone(next_zone)
-                    drone.transit_timer = (
-                        2 if zone_obj.zone_type == "restricted" else 1
-                    )
-                    drone.path.pop(0)
+                zone_obj = self.stats.graph.get_zone(next_zone)
+                is_restricted = zone_obj.zone_type == "restricted"
+                drone.transit_timer = 2 if is_restricted else 1
+                drone.path.pop(0)
 
     def finalize_arrivals(self) -> None:
         """Promotes arrived drones to WAITING state for next turn."""

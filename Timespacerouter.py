@@ -1,10 +1,15 @@
 import heapq
 from typing import List, Optional, Tuple
+
 from graph import Graph
 from reservations import ReservationTable
 
 
 class TimeSpaceRouter:
+    """Plans a single drone's route as a shortest path over (zone, turn)
+    states, respecting zone/connection capacity already reserved by
+    previously-planned drones."""
+
     def __init__(self, graph: Graph, reservations: ReservationTable) -> None:
         self.graph = graph
         self.reservations = reservations
@@ -18,9 +23,14 @@ class TimeSpaceRouter:
         return self.reservations.zone_count(zone_name, turn) < zone.max_drones
 
     def _connection_ok(self, z1: str, z2: str, turn: int) -> bool:
+        if z1 == z2:
+            # Not a real connection; waiting in place is handled by
+            # the caller via _zone_ok only.
+            return True
         for conn in self.graph.get_neighbors(z1):
             if conn.zone_1 == z2 or conn.zone_2 == z2:
-                return self.reservations.conn_count(z1, z2, turn) < conn.max_link_capacity
+                count = self.reservations.conn_count(z1, z2, turn)
+                return count < conn.max_link_capacity
         return False
 
     def find_path(
@@ -37,7 +47,9 @@ class TimeSpaceRouter:
         counter = 0
         start_state = (start, start_turn)
         best: dict = {start_state: start_turn}
-        queue = [(start_turn, 0, counter, start, start_turn, [(start, start_turn)])]
+        queue = [
+            (start_turn, 0, counter, start, start_turn, [(start, start_turn)])
+        ]
 
         while queue:
             cost, _, _, zone, turn, path = heapq.heappop(queue)
@@ -54,16 +66,22 @@ class TimeSpaceRouter:
                 if turn + 1 < best.get(nxt, float("inf")):
                     best[nxt] = turn + 1
                     counter += 1
-                    heapq.heappush(queue, (turn + 1, 0, counter, zone, turn + 1, path + [nxt]))
+                    heapq.heappush(
+                        queue,
+                        (turn + 1, 0, counter, zone, turn + 1, path + [nxt]),
+                    )
 
             # Option 2: move to a neighbor.
             for conn in self.graph.get_neighbors(zone):
-                neighbor = conn.zone_2 if conn.zone_1 == zone else conn.zone_1
+                neighbor = (
+                    conn.zone_2 if conn.zone_1 == zone else conn.zone_1
+                )
                 neighbor_zone = self.graph.get_zone(neighbor)
                 if neighbor_zone.zone_type == "blocked":
                     continue
 
-                transit_time = 2 if neighbor_zone.zone_type == "restricted" else 1
+                is_restricted = neighbor_zone.zone_type == "restricted"
+                transit_time = 2 if is_restricted else 1
                 arrival = turn + transit_time
 
                 # Connection must be free for every turn of the transit.
@@ -78,11 +96,19 @@ class TimeSpaceRouter:
                 nxt = (neighbor, arrival)
                 if arrival < best.get(nxt, float("inf")):
                     best[nxt] = arrival
-                    priority_tag = -1 if neighbor_zone.zone_type == "priority" else 0
+                    is_priority = neighbor_zone.zone_type == "priority"
+                    priority_tag = -1 if is_priority else 0
                     counter += 1
                     heapq.heappush(
                         queue,
-                        (arrival, priority_tag, counter, neighbor, arrival, path + [nxt]),
+                        (
+                            arrival,
+                            priority_tag,
+                            counter,
+                            neighbor,
+                            arrival,
+                            path + [nxt],
+                        ),
                     )
 
         return None

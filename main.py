@@ -5,7 +5,7 @@ from parser import Parser, ParserError
 from reservations import ReservationTable
 from simulationengine import SimulationEngine
 from simulationstats import Drone, SimulationState
-from TimeSpaceRouter import TimeSpaceRouter
+from Timespacerouter import TimeSpaceRouter
 
 
 def main() -> None:
@@ -32,15 +32,15 @@ def main() -> None:
         drone = Drone(f"D{i + 1}", start_zone)
 
         start_turn = 0
-        horizon = start_turn + len(graph.zones) * 2
+        max_time = len(graph.zones) * 2
         path = router.find_path(
-            start_zone, end_zone, start_turn, horizon
+            start_zone, end_zone, start_turn, max_time
         )
 
         if path is None:
             print(
                 f"Error: no viable route found for {drone.name} "
-                f"within horizon {horizon}",
+                f"within horizon {max_time}",
                 file=sys.stderr,
             )
             sys.exit(1)

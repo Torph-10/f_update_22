@@ -33,5 +33,9 @@ class ReservationTable:
     def prune_before(self, turn: int) -> None:
         """Drops entries whose turn has already elapsed, so the table
         doesn't grow unbounded over a long simulation horizon."""
-        self.zone_res = {k: v for k, v in self.zone_res.items() if k[1] >= turn}
-        self.conn_res = {k: v for k, v in self.conn_res.items() if k[1] >= turn}
+        self.zone_res = {
+            k: v for k, v in self.zone_res.items() if k[1] >= turn
+        }
+        self.conn_res = {
+            k: v for k, v in self.conn_res.items() if k[1] >= turn
+        }
