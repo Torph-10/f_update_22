@@ -1,5 +1,5 @@
 from simulationstats import DroneStatus, Drone, SimulationState
-from models import Connection
+
 
 class SimulationEngine:
     def __init__(self, stats: SimulationState, drones: list[Drone]) -> None:
@@ -8,7 +8,9 @@ class SimulationEngine:
 
     def is_simulation_complete(self) -> bool:
         """Checks if all drones have reached their final destination."""
-        return all(drone.status == DroneStatus.DELIVERED for drone in self.drones)
+        return all(
+            drone.status == DroneStatus.DELIVERED for drone in self.drones
+        )
 
     def process_arriving_drones(self) -> None:
         """Handles drones arriving at their destination zone."""
@@ -16,10 +18,10 @@ class SimulationEngine:
             if drone.status == DroneStatus.IN_TRANSIT:
                 drone.transit_timer -= 1
                 if drone.transit_timer <= 0:
-                    # Release connection and add drone to new zone
-                    self.stats.update_connection(drone.current_zone, drone.transit_destination, -1)
+                    self.stats.update_connection(
+                        drone.current_zone, drone.transit_destination, -1
+                    )
                     drone.current_zone = drone.transit_destination
-                    self.stats.update_zone(drone.current_zone, 1)
                     drone.status = DroneStatus.ARRIVED
 
     def process_departing_drones(self) -> None:
@@ -29,21 +31,39 @@ class SimulationEngine:
                 if not drone.path:
                     self.stats.update_zone(drone.current_zone, -1)
                     drone.status = DroneStatus.DELIVERED
-                    print(f"Turn {self.stats.turn_count}: {drone.name} is DELIVERED!")
                     continue
 
                 next_zone = drone.path[0]
-                if (self.stats.has_connection_space(drone.current_zone, next_zone)
-                    and self.stats.has_zone_space(next_zone)):
-                    
+
+                if next_zone == drone.current_zone:
+                    # Explicit "wait in place" checkpoint produced by the
+                    # planner (e.g. a zone was full this turn). Consume it
+                    # without touching zone/connection occupancy: routing
+                    # this through has_connection_space would rely on a
+                    # zone always trivially "connecting" to itself via any
+                    # of its real neighbors, and would incorrectly cost 2
+                    # turns if the zone happens to be restricted.
+                    drone.path.pop(0)
+                    continue
+
+                if (
+                    self.stats.has_connection_space(drone.current_zone, next_zone)
+                    and self.stats.has_zone_space(next_zone)
+                ):
+
                     self.stats.update_zone(drone.current_zone, -1)
-                    self.stats.update_connection(drone.current_zone, next_zone, 1)
+                    self.stats.update_connection(
+                        drone.current_zone, next_zone, 1
+                    )
 
                     drone.transit_destination = next_zone
+                    self.stats.update_zone(next_zone, 1)
                     drone.status = DroneStatus.IN_TRANSIT
-                     
+
                     zone_obj = self.stats.graph.get_zone(next_zone)
-                    drone.transit_timer = 2 if zone_obj.zone_type == "restricted" else 1
+                    drone.transit_timer = (
+                        2 if zone_obj.zone_type == "restricted" else 1
+                    )
                     drone.path.pop(0)
 
     def finalize_arrivals(self) -> None:
@@ -60,7 +80,9 @@ class SimulationEngine:
                 dest = drone.transit_destination
                 dest_obj = self.stats.graph.get_zone(dest)
                 if dest_obj.zone_type == "restricted":
-                    sim_output.append(f"{drone.name}-{drone.current_zone}-{dest}")
+                    sim_output.append(
+                        f"{drone.name}-{drone.current_zone}-{dest}"
+                    )
                 else:
                     sim_output.append(f"{drone.name}-{dest}")
         if sim_output:

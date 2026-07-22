@@ -2,12 +2,14 @@ from enum import Enum
 from typing import Optional, Tuple
 from graph import Graph
 
+
 class DroneStatus(Enum):
     """Represents the current state of a drone in the simulation."""
     WAITING = "WAITING"
     IN_TRANSIT = "IN_TRANSIT"
     DELIVERED = "DELIVERED"
     ARRIVED = "ARRIVED"
+
 
 class Drone:
     """Tracks the individual state and planned path of a single drone."""
@@ -25,7 +27,7 @@ class SimulationState:
     def __init__(self, graph: Graph) -> None:
         self.graph: Graph = graph
         self.turn_count: int = 0
-        
+
         self.zone_occupancy: dict[str, int] = {
             zone_name: 0 for zone_name in graph.zones
         }
@@ -39,6 +41,8 @@ class SimulationState:
     def has_zone_space(self, zone_name: str) -> bool:
         """Checks if a zone can accept another drone based on max_drones."""
         zone = self.graph.get_zone(zone_name)
+        if zone.zone_type == "blocked":
+            return False
         if zone.is_start or zone.is_end:
             return True
         return self.zone_occupancy.get(zone_name, 0) < zone.max_drones
