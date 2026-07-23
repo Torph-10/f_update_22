@@ -33,85 +33,56 @@ class TimeSpaceRouter:
                 return count < conn.max_link_capacity
         return False
 
-    def find_path(
-        self, start: str, end: str, start_turn: int, horizon: int
-    ) -> Optional[List[Tuple[str, int]]]:
-        """Time-space Dijkstra. Returns a list of (zone, turn) checkpoints
-        the drone occupies, or None if unreachable within `horizon`.
+    def find_path(self, start, end, start_turn, max_time):
+        """Finds the earliest-arrival path from `start` to `end`.
 
-        `horizon` bounds how far into the future waiting is explored —
-        without it, the search space is unbounded since waiting is a
-        valid move at every turn. A safe default is
-        `start_turn + len(self.graph.zones) * 2`.
+        Works turn-by-turn: `reached` tracks every (zone, turn) state we've
+        found a path to. Because we process turns in increasing order and
+        every move costs at least 1 turn, the first time we reach `end` is
+        guaranteed to be the earliest possible arrival.
         """
-        counter = 0
-        start_state = (start, start_turn)
-        best: dict = {start_state: start_turn}
-        queue = [
-            (start_turn, 0, counter, start, start_turn, [(start, start_turn)])
-        ]
+        reached = {(start, start_turn): [(start, start_turn)]}
+        zones_at_turn = {start_turn: [start]}
 
-        while queue:
-            cost, _, _, zone, turn, path = heapq.heappop(queue)
-            if cost > best.get((zone, turn), float("inf")):
-                continue
-            if zone == end:
-                return path
-            if turn >= horizon:
-                continue
+        for turn in range(start_turn, max_time + 1):
+            for zone in zones_at_turn.get(turn, []):
+                path_so_far = reached[(zone, turn)]
 
-            # Option 1: wait one turn in place.
-            if self._zone_ok(zone, turn + 1):
-                nxt = (zone, turn + 1)
-                if turn + 1 < best.get(nxt, float("inf")):
-                    best[nxt] = turn + 1
-                    counter += 1
-                    heapq.heappush(
-                        queue,
-                        (turn + 1, 0, counter, zone, turn + 1, path + [nxt]),
+                if zone == end:
+                    return path_so_far
+
+                # Option 1: wait one turn in place.
+                if self._zone_ok(zone, turn + 1):
+                    self._add_state(reached, zones_at_turn, zone, turn + 1, path_so_far)
+
+                # Option 2: move to each neighbor.
+                for conn in self.graph.get_neighbors(zone):
+                    neighbor = conn.zone_2 if conn.zone_1 == zone else conn.zone_1
+                    neighbor_zone = self.graph.get_zone(neighbor)
+                    if neighbor_zone.zone_type == "blocked":
+                        continue
+
+                    transit_time = 2 if neighbor_zone.zone_type == "restricted" else 1
+                    arrival = turn + transit_time
+
+                    connection_free = all(
+                        self._connection_ok(zone, neighbor, turn + t)
+                        for t in range(transit_time)
                     )
+                    if not connection_free or not self._zone_ok(neighbor, arrival):
+                        continue
 
-            # Option 2: move to a neighbor.
-            for conn in self.graph.get_neighbors(zone):
-                neighbor = (
-                    conn.zone_2 if conn.zone_1 == zone else conn.zone_1
-                )
-                neighbor_zone = self.graph.get_zone(neighbor)
-                if neighbor_zone.zone_type == "blocked":
-                    continue
-
-                is_restricted = neighbor_zone.zone_type == "restricted"
-                transit_time = 2 if is_restricted else 1
-                arrival = turn + transit_time
-
-                # Connection must be free for every turn of the transit.
-                if any(
-                    not self._connection_ok(zone, neighbor, turn + t)
-                    for t in range(transit_time)
-                ):
-                    continue
-                if not self._zone_ok(neighbor, arrival):
-                    continue
-
-                nxt = (neighbor, arrival)
-                if arrival < best.get(nxt, float("inf")):
-                    best[nxt] = arrival
-                    is_priority = neighbor_zone.zone_type == "priority"
-                    priority_tag = -1 if is_priority else 0
-                    counter += 1
-                    heapq.heappush(
-                        queue,
-                        (
-                            arrival,
-                            priority_tag,
-                            counter,
-                            neighbor,
-                            arrival,
-                            path + [nxt],
-                        ),
-                    )
+                    self._add_state(reached, zones_at_turn, neighbor, arrival, path_so_far)
 
         return None
+
+
+    def _add_state(self, reached, zones_at_turn, zone, turn, path_so_far):
+        """Records the first path found to (zone, turn), if none exists yet."""
+        state = (zone, turn)
+        if state not in reached:
+            reached[state] = path_so_far + [state]
+            zones_at_turn.setdefault(turn, []).append(zone)
 
     def commit_path(self, path: List[Tuple[str, int]]) -> None:
         """Reserves the exact turn-by-turn occupancy of a finalized path
