@@ -6,6 +6,7 @@ class SimulationEngine:
     of paths, enforcing zone and connection capacity as drones move."""
 
     def __init__(self, stats: SimulationState, drones: list[Drone]) -> None:
+        """Initializes the engine with shared state and the drone fleet."""
         self.stats: SimulationState = stats
         self.drones: list[Drone] = drones
 
@@ -21,6 +22,8 @@ class SimulationEngine:
             if drone.status == DroneStatus.IN_TRANSIT:
                 drone.transit_timer -= 1
                 if drone.transit_timer <= 0:
+                    if drone.transit_destination is None:
+                        continue
                     self.stats.update_connection(
                         drone.current_zone, drone.transit_destination, -1
                     )
@@ -36,22 +39,11 @@ class SimulationEngine:
             if not drone.path:
                 self.stats.update_zone(drone.current_zone, -1)
                 drone.status = DroneStatus.DELIVERED
-                print(
-                    f"Turn {self.stats.turn_count}: "
-                    f"{drone.name} is DELIVERED!"
-                )
                 continue
 
             next_zone = drone.path[0]
 
             if next_zone == drone.current_zone:
-                # Explicit "wait in place" checkpoint produced by the
-                # planner (e.g. a zone was full this turn). Consume it
-                # without touching zone/connection occupancy: routing
-                # this through has_connection_space would rely on a
-                # zone always trivially "connecting" to itself via any
-                # of its real neighbors, and would incorrectly cost 2
-                # turns if the zone happens to be restricted.
                 drone.path.pop(0)
                 continue
 
@@ -85,6 +77,8 @@ class SimulationEngine:
         for drone in self.drones:
             if drone.status == DroneStatus.IN_TRANSIT:
                 dest = drone.transit_destination
+                if dest is None:
+                    continue
                 dest_obj = self.stats.graph.get_zone(dest)
                 if dest_obj.zone_type == "restricted":
                     sim_output.append(

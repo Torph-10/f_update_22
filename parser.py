@@ -5,6 +5,13 @@ class ParserError(Exception):
     """Raised when the input map file contains invalid or malformed data."""
 
     def __init__(self, line_number: int, msg: str) -> None:
+        """Initializes the error with the offending line and a message.
+
+        Args:
+            line_number: The 1-indexed line number where the error
+                occurred, or 0 for file-wide validation errors.
+            msg: A human-readable description of what went wrong.
+        """
         self.line_number = line_number
         self.msg = msg
         super().__init__(f"Line {line_number}: {msg}")
@@ -15,7 +22,12 @@ class Parser:
 
     VALID_TYPES = ("normal", "blocked", "restricted", "priority")
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str) -> None:
+        """Initializes the parser with the path to the map file.
+
+        Args:
+            file_path: Path to the map file to parse.
+        """
         self.file_path = file_path
 
     def parse(self) -> MapData:

@@ -32,7 +32,7 @@ def main() -> None:
         drone = Drone(f"D{i + 1}", start_zone)
 
         start_turn = 0
-        max_time = len(graph.zones) * 2
+        max_time = len(graph.zones) * 2 + map_data.nb_drones * 2
         path = router.find_path(
             start_zone, end_zone, start_turn, max_time
         )
@@ -46,13 +46,13 @@ def main() -> None:
             sys.exit(1)
 
         router.commit_path(path)
-        # Strip the start checkpoint: process_departing_drones treats
-        # path[0] as the next zone to move into, not the current one.
         drone.path = [zone for zone, _ in path[1:]]
         drones.append(drone)
 
     engine = SimulationEngine(state, drones)
+    print("Running Simulator")
     engine.run_engine()
+    print("\n\n NUMBER =", engine.stats.turn_count - 1)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ class Graph:
     """Represents the map as a
     graph with zones and bidirectional connections."""
 
-    def __init__(self, map_data: MapData):
+    def __init__(self, map_data: MapData) -> None:
         """Initializes the graph from MapData.
 
         Args:
