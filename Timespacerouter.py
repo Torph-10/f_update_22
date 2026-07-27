@@ -39,7 +39,6 @@ class TimeSpaceRouter:
         self, start: str, end: str, start_turn: int, max_time: int
     ) -> Optional[List[Tuple[str, int]]]:
         """Finds the earliest-arrival path from `start` to `end`.
-
         Works turn-by-turn: `reached` tracks every (zone, turn) state
         found so far, along with a priority score (higher when the
         path passes through more "priority" zones). Because turns are
@@ -47,10 +46,7 @@ class TimeSpaceRouter:
         1 turn, the first time `end` is reached is guaranteed to be
         the earliest possible arrival; among equal-turn ties at the
         same state, the higher-priority-score path wins."""
-        start_score = (
-            1 if self.graph.get_zone(start).zone_type == "priority" else 0
-        )
-        reached = {(start, start_turn): (start_score, [(start, start_turn)])}
+        reached = {(start, start_turn): (0, [(start, start_turn)])}
         zones_at_turn = {start_turn: [start]}
 
         for turn in range(start_turn, max_time + 1):
