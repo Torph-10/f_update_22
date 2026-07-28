@@ -21,12 +21,10 @@ just congestion that exists right now.
 Requires Python 3.10+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
+make lint      # flake8 . && mypy . (project's required flag set)
+make clean     # removes __pycache__ and .mypy_cache
 make install   # uv sync — installs flake8 and mypy as dev dependencies
 make run       # uv run python3 main.py — parses map.txt and runs the simulation
-make debug     # runs main.py under pdb
-make lint      # flake8 . && mypy . (project's required flag set)
-make lint-strict  # flake8 . && mypy . --strict
-make clean     # removes __pycache__ and .mypy_cache
 ```
 
 The map is read from `map.txt` in the project root. See `map.txt` for the

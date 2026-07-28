@@ -73,6 +73,25 @@ class SimulationEngine:
 
     def print_turn_summary(self) -> None:
         """Prints the simulation state for the current turn."""
+        
+        color = {
+            "black": "\033[30m",
+            "red": "\033[31m",
+            "green": "\033[32m",
+            "yellow": "\033[33m",
+            "blue": "\033[34m",
+            "purple": "\033[35m",
+            "cyan": "\033[36m",
+            "white": "\033[37m",
+            "orange": "\033[38;5;208m",
+            "brown": "\033[38;5;130m",
+            "maroon": "\033[38;5;52m",
+            "darkred": "\033[38;5;88m",
+            "violet": "\033[38;5;177m",
+            "crimson": "\033[38;5;160m",
+        }
+        reset = "\033[0m"
+
         sim_output = []
         for drone in self.drones:
             if drone.status == DroneStatus.IN_TRANSIT:
@@ -80,12 +99,19 @@ class SimulationEngine:
                 if dest is None:
                     continue
                 dest_obj = self.stats.graph.get_zone(dest)
+
+                zone_color = getattr(dest_obj, 'color', None)
+
+                color_code = color.get(zone_color.lower(), "") if zone_color else ""
+                reset_code = reset if color_code else ""
+
                 if dest_obj.zone_type == "restricted":
-                    sim_output.append(
-                        f"{drone.name}-{drone.current_zone}-{dest}"
-                    )
+                    output_str = f"{drone.name}-{drone.current_zone}-{dest}"
                 else:
-                    sim_output.append(f"{drone.name}-{dest}")
+                    output_str = f"{drone.name}-{dest}"
+
+                sim_output.append(f"{color_code}{output_str}{reset_code}")
+
         if sim_output:
             print(" ".join(sim_output))
 

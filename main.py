@@ -11,10 +11,14 @@ from Timespacerouter import TimeSpaceRouter
 def main() -> None:
     """Parses the map, plans every drone's route with the time-space
     router, and runs the turn-by-turn simulation to completion."""
+    if len(sys.argv) != 3:
+        print("Usage: python fly-in.py <map_file>")
+        sys.exit(1)
+
     try:
-        parser = Parser("map.txt")
+        parser = Parser(sys.argv[1])
         map_data = parser.parse()
-    except ParserError as exc:
+    except (ParserError, FileNotFoundError) as exc:
         print(f"Error parsing map: {exc}", file=sys.stderr)
         sys.exit(1)
 

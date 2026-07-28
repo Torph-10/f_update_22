@@ -4,7 +4,7 @@ install:
 	uv sync
 
 run:
-	uv run python3 main.py
+	uv run python3 main.py map.txt
 
 clean:
 	@find . -type d -name "__pycache__" -exec rm -rf {} +
