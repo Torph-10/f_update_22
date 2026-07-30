@@ -11,7 +11,7 @@ from Timespacerouter import TimeSpaceRouter
 def main() -> None:
     """Parses the map, plans every drone's route with the time-space
     router, and runs the turn-by-turn simulation to completion."""
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 2:
         print("Usage: python fly-in.py <map_file>")
         sys.exit(1)
 
@@ -56,7 +56,6 @@ def main() -> None:
     engine = SimulationEngine(state, drones)
     print("Running Simulator")
     engine.run_engine()
-    print("\n\n NUMBER =", engine.stats.turn_count - 1)
 
 
 if __name__ == "__main__":

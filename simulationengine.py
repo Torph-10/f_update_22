@@ -73,7 +73,7 @@ class SimulationEngine:
 
     def print_turn_summary(self) -> None:
         """Prints the simulation state for the current turn."""
-        
+
         color = {
             "black": "\033[30m",
             "red": "\033[31m",
@@ -90,7 +90,6 @@ class SimulationEngine:
             "violet": "\033[38;5;177m",
             "crimson": "\033[38;5;160m",
         }
-        reset = "\033[0m"
 
         sim_output = []
         for drone in self.drones:
@@ -102,15 +101,17 @@ class SimulationEngine:
 
                 zone_color = getattr(dest_obj, 'color', None)
 
-                color_code = color.get(zone_color.lower(), "") if zone_color else ""
-                reset_code = reset if color_code else ""
+                color_code = (
+                    color.get(zone_color.lower(), "\033[0m")
+                    if zone_color else "\033[0m"
+                )
 
                 if dest_obj.zone_type == "restricted":
                     output_str = f"{drone.name}-{drone.current_zone}-{dest}"
                 else:
                     output_str = f"{drone.name}-{dest}"
 
-                sim_output.append(f"{color_code}{output_str}{reset_code}")
+                sim_output.append(f"{color_code}{output_str}\033[0m")
 
         if sim_output:
             print(" ".join(sim_output))
