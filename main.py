@@ -56,6 +56,7 @@ def main() -> None:
     engine = SimulationEngine(state, drones)
     print("Running Simulator")
     engine.run_engine()
+    print(f"Number : {engine.stats.turn_count}")
 
 
 if __name__ == "__main__":

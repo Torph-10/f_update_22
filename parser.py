@@ -44,6 +44,7 @@ class Parser:
         lis_zones: list[Zone] = []
         lis_connection: list[Connection] = []
         seen_zone_names = set()
+        nb_drone_parsed = False
 
         with open(self.file_path, "r") as f:
             for i, line in enumerate(f, 1):
@@ -51,6 +52,9 @@ class Parser:
                 if line.startswith("#"):
                     continue
                 if line.startswith("nb_drones"):
+                    if nb_drone_parsed:
+                        raise ParserError(i, "duplicate nb_drones line")
+                    nb_drone_parsed = True
                     tokens = line.split(":")
                     if len(tokens) < 2 or not tokens[1].strip():
                         raise ParserError(
@@ -68,6 +72,11 @@ class Parser:
                             i, f"invalid number of drones '{nb_drones}'"
                         )
                 elif line.startswith(("hub", "start_hub", "end_hub")):
+                    if not nb_drone_parsed:
+                        raise ParserError(
+                            i, "nb_drones must be defined before any "
+                            "zone or connection line"
+                        )
                     zone = self.parse_zone_line(line, i)
                     if zone.name in seen_zone_names:
                         raise ParserError(
@@ -78,6 +87,8 @@ class Parser:
 
                 elif line.startswith("connection"):
                     lis_connection.append(self.parse_connection_line(line, i))
+                elif line:
+                    raise ParserError(i, f"unrecognized line '{line}'")
 
         self.validate(lis_zones, lis_connection)
 
@@ -142,18 +153,24 @@ class Parser:
                         )
                 elif key == "color":
                     color = value
-                elif key == "max_drones" and not (is_start or is_end):
-                    try:
-                        max_drones = int(value)
-                    except ValueError:
-                        raise ParserError(
-                            line_number,
-                            "invalid data, max drones must be integer"
-                        )
-                    if max_drones < 1:
-                        raise ParserError(
-                            line_number, f"invalid max drones '{max_drones}'"
-                        )
+                elif key == "max_drones":
+                    if not (is_start or is_end):
+                        try:
+                            max_drones = int(value)
+                        except ValueError:
+                            raise ParserError(
+                                line_number,
+                                "invalid data, max drones must be integer"
+                            )
+                        if max_drones < 1:
+                            raise ParserError(
+                                line_number,
+                                f"invalid max drones '{max_drones}'"
+                            )
+                else:
+                    raise ParserError(
+                        line_number, f"unknown metadata key '{key}'"
+                    )
 
         return Zone(name, x, y, zone_type, max_drones, is_start, is_end, color)
 
@@ -188,6 +205,10 @@ class Parser:
             )
 
         zone_1, zone_2 = zones_part[0].strip(), zones_part[1].strip()
+        if zone_1 == zone_2:
+            raise ParserError(
+                line_number, f"self-connection not allowed '{zone_1}-{zone_2}'"
+            )
 
         if len(parts) > 1:
             meta = parts[1].rstrip("]\n").strip()
