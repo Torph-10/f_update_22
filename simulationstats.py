@@ -53,9 +53,6 @@ class SimulationState:
 
     def has_connection_space(self, z1: str, z2: str) -> bool:
         """Checks if a connection can accept another drone."""
-        if z1 == z2:
-            return True
-
         conn_key = self.get_conn_key(z1, z2)
         current_count = self.connection_occupancy.get(conn_key, 0)
 

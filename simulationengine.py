@@ -53,7 +53,9 @@ class SimulationEngine:
                     drone.status = DroneStatus.ARRIVED
 
     def process_departing_drones(self) -> None:
-        """Handles drones departing from their current zone."""
+        """Handles drones departing from their current zone using a two-phase approach."""
+        moving_drones = []
+
         for drone in self.drones:
             if drone.status != DroneStatus.WAITING:
                 continue
@@ -64,20 +66,23 @@ class SimulationEngine:
                 continue
 
             next_zone = drone.path[0]
-
             if next_zone == drone.current_zone:
                 drone.path.pop(0)
                 continue
 
+            self.stats.update_zone(drone.current_zone, -1)
+            moving_drones.append(drone)
+
+        for drone in moving_drones:
+            next_zone = drone.path[0]
             has_conn_space = self.stats.has_connection_space(
                 drone.current_zone, next_zone
             )
+            
             if has_conn_space and self.stats.has_zone_space(next_zone):
-                self.stats.update_zone(drone.current_zone, -1)
                 self.stats.update_connection(
                     drone.current_zone, next_zone, 1
                 )
-
                 drone.transit_destination = next_zone
                 self.stats.update_zone(next_zone, 1)
                 drone.status = DroneStatus.IN_TRANSIT
@@ -86,12 +91,8 @@ class SimulationEngine:
                 is_restricted = zone_obj.zone_type == "restricted"
                 drone.transit_timer = 2 if is_restricted else 1
                 drone.path.pop(0)
-
-    def deliv(self) -> None:
-        for drone in self.drones:
-            if not drone.path:
-                self.stats.update_zone(drone.current_zone, -1)
-                drone.status = DroneStatus.DELIVERED
+            else:
+                self.stats.update_zone(drone.current_zone, 1)
 
     def finalize_arrivals(self) -> None:
         """Promotes arrived drones to WAITING state for next turn."""
