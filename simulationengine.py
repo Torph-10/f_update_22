@@ -87,6 +87,12 @@ class SimulationEngine:
                 drone.transit_timer = 2 if is_restricted else 1
                 drone.path.pop(0)
 
+    def deliv(self) -> None:
+        for drone in self.drones:
+            if not drone.path:
+                self.stats.update_zone(drone.current_zone, -1)
+                drone.status = DroneStatus.DELIVERED
+
     def finalize_arrivals(self) -> None:
         """Promotes arrived drones to WAITING state for next turn."""
         for drone in self.drones:
@@ -103,7 +109,6 @@ class SimulationEngine:
                     continue
                 dest_obj = self.stats.graph.get_zone(dest)
                 code = _color_code(getattr(dest_obj, "color", None))
-
                 if dest_obj.zone_type == "restricted":
                     output_str = f"{drone.name}-{drone.current_zone}-{dest}"
                 else:

@@ -32,31 +32,34 @@ def main() -> None:
     end_zone = next(z.name for z in map_data.lis_zones if z.is_end)
 
     drones: list[Drone] = []
-    for i in range(map_data.nb_drones):
-        drone = Drone(f"D{i + 1}", start_zone)
+    try:
+        for i in range(map_data.nb_drones):
+            drone = Drone(f"D{i + 1}", start_zone)
 
-        start_turn = 0
-        max_time = len(graph.zones) * 2 + map_data.nb_drones * 2
-        path = router.find_path(
-            start_zone, end_zone, start_turn, max_time
-        )
-
-        if path is None:
-            print(
-                f"Error: no viable route found for {drone.name} "
-                f"within horizon {max_time}",
-                file=sys.stderr,
+            start_turn = 0
+            max_time = len(graph.zones) * 2 + map_data.nb_drones * 2
+            path = router.find_path(
+                start_zone, end_zone, start_turn, max_time
             )
-            sys.exit(1)
 
-        router.commit_path(path)
-        drone.path = [zone for zone, _ in path[1:]]
-        drones.append(drone)
+            if path is None:
+                print(
+                    f"Error: no viable route found for {drone.name} "
+                    f"within horizon {max_time}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
-    engine = SimulationEngine(state, drones)
-    print("Running Simulator")
-    engine.run_engine()
-    print(f"Number : {engine.stats.turn_count}")
+            router.commit_path(path)
+            drone.path = [zone for zone, _ in path[1:]]
+            drones.append(drone)
+
+        engine = SimulationEngine(state, drones)
+        print("Running Simulator")
+        engine.run_engine()
+        print(f"Number : {engine.stats.turn_count}")
+    except KeyboardInterrupt:
+        print("\nSimulation interrupted by user.")
 
 
 if __name__ == "__main__":
