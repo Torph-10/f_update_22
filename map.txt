@@ -1,21 +1,19 @@
 # Easy Level 1: Simple linear path
- nb_drones: 1
 
 
-# comments (start_hub: start 0 0 [color=green] #hehsjdcksk)
 # same cordinates (start_hub: start 0 0 [color=green] hub: waypoint1 0 0 [color=blue])
 # onlyy max_drones and zone metadata is alowed in hub
 # no fixed list of color [use web color library]
 # ]color=blue[
 # KeyboardInterrupt
 
+ nb_drones: 1
 
-
-start_hub: start 0 0 [color=green]
-hub: waypoint1 0 0 [color=blue]
+start_hub: start 0 0 [color=green jfvfdk=0]
+hub: waypoint1 1 0 [color=blue] #hell
 hub: waypoint2 2 0 [color=blue] 
 end_hub: goal 3 0 [color=red]
 
-connection: start-waypoint1 #hello
+connection: start-waypoint1
 connection: waypoint1-waypoint2
 connection: waypoint2-goal
