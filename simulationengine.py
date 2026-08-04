@@ -23,6 +23,7 @@ def _color_code(name: str | None) -> str:
         code_256 = 16 + (zlib.crc32(key.encode()) % 216)
         return f"\033[38;5;{code_256}m"
 
+
 class SimulationEngine:
     """Runs the turn-by-turn drone simulation over a pre-planned set
     of paths, enforcing zone and connection capacity as drones move."""
@@ -50,10 +51,11 @@ class SimulationEngine:
                         drone.current_zone, drone.transit_destination, -1
                     )
                     drone.current_zone = drone.transit_destination
-                    drone.status = DroneStatus.ARRIVED
+                    drone.status = DroneStatus.WAITING
 
     def process_departing_drones(self) -> None:
-        """Handles drones departing from their current zone using a two-phase approach."""
+        """Handles drones departing from their current zone
+        using a two-phase approach."""
         moving_drones = []
 
         for drone in self.drones:
@@ -78,7 +80,7 @@ class SimulationEngine:
             has_conn_space = self.stats.has_connection_space(
                 drone.current_zone, next_zone
             )
-            
+
             if has_conn_space and self.stats.has_zone_space(next_zone):
                 self.stats.update_connection(
                     drone.current_zone, next_zone, 1
@@ -93,12 +95,6 @@ class SimulationEngine:
                 drone.path.pop(0)
             else:
                 self.stats.update_zone(drone.current_zone, 1)
-
-    def finalize_arrivals(self) -> None:
-        """Promotes arrived drones to WAITING state for next turn."""
-        for drone in self.drones:
-            if drone.status == DroneStatus.ARRIVED:
-                drone.status = DroneStatus.WAITING
 
     def print_turn_summary(self) -> None:
         """Prints the simulation state for the current turn."""
@@ -125,6 +121,5 @@ class SimulationEngine:
         while not self.is_simulation_complete():
             self.stats.turn_count += 1
             self.process_arriving_drones()
-            self.finalize_arrivals()
             self.process_departing_drones()
             self.print_turn_summary()

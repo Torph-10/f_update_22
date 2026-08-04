@@ -1,31 +1,15 @@
-nb_drones: 3
-start_hub: start 0 0
-end_hub: goal 10 10
+# Medium Level 1: Dead end trap - drones might get stuck
+nb_drones: 
 
-hub: G1 1 1 [zone=priority]
-hub: G2 2 1 [zone=priority]
-hub: F 3 1
+start_hub: start 0 0 [color=green] [max_drones=2]
+hub: junction 1 0 [color=yellow max_drones=2]
+hub: dead_end 1 1 [color=red]
+hub: correct_path 2 0 [color=blue]
+hub: intermediate 3 0 [color=blue]
+end_hub: goal 4 0 [color=green]
 
-hub: A1 1 2 [zone=priority]
-hub: A2 2 2 [zone=priority]
-hub: X 3 2 [zone=priority]
-
-hub: B1 1 3
-hub: S1 4 3
-hub: S2 5 3
-
-connection: start-G1
-connection: G1-G2
-connection: G2-F
-connection: F-goal
-
-connection: start-A1
-connection: A1-A2
-connection: A2-X
-connection: X-F
-
-connection: start-B1
-connection: B1-X
-connection: X-S1
-connection: S1-S2
-connection: S2-goal
+connection: start-junction [max_link_capacity=2]
+connection: junction-dead_end
+connection: junction-correct_path
+connection: correct_path-intermediate
+connection: intermediate-goal

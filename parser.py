@@ -75,7 +75,7 @@ class Parser:
                     if not nb_drone_parsed:
                         raise ParserError(
                             i, "nb_drones must be defined before any "
-                            "zone or connection line"
+                            "zone line"
                         )
                     zone = self.parse_zone_line(line, i)
                     if zone.name in seen_zone_names:
@@ -86,6 +86,11 @@ class Parser:
                     lis_zones.append(zone)
 
                 elif line.startswith("connection"):
+                    if not nb_drone_parsed:
+                        raise ParserError(
+                            i, "nb_drones must be defined before any "
+                            "connection line"
+                        )
                     lis_connection.append(self.parse_connection_line(line, i))
                 elif line:
                     raise ParserError(i, f"unrecognized line '{line}'")
@@ -114,13 +119,20 @@ class Parser:
         is_start = line.startswith("start_hub")
         is_end = line.startswith("end_hub")
 
+        if ("[" in line) != ("]" in line):
+            raise ParserError(line_number, "invalid metadata format")
+        if line.count("[") > 1 or line.count("]") > 1:
+            raise ParserError(
+                line_number, "multiple metadata blocks not allowed"
+            )
+
         parts = line.split("[")
         colon_parts = parts[0].split(":")
         if len(colon_parts) < 2:
             raise ParserError(line_number, f"invalid zone line '{line}'")
         main = colon_parts[1].split()
 
-        if len(main) < 3:
+        if len(main) != 3:
             raise ParserError(
                 line_number, f"expected '<name> <x> <y>', "
                 f"got '{parts[0].strip()}'"
@@ -188,6 +200,14 @@ class Parser:
             ParserError: If the max_link_capacity value is invalid.
         """
         max_link_capacity = 1
+
+        if ("[" in line) != ("]" in line):
+            raise ParserError(line_number, "invalid metadata format")
+        if line.count("[") > 1 or line.count("]") > 1:
+            raise ParserError(
+                line_number, "multiple metadata blocks not allowed"
+            )
+
         parts = line.split("[")
         colon_parts = parts[0].split(":")
         if len(colon_parts) < 2:
