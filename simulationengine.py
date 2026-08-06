@@ -1,27 +1,6 @@
 from simulationstats import Drone, DroneStatus, SimulationState
 import zlib
-
 import webcolors
-
-
-def _color_code(name: str | None) -> str:
-    """Resolves a color name to an ANSI escape code.
-
-    Recognized CSS3 web color names (the standard set — 'gray', 'teal',
-    'tomato', 'cornflowerblue', etc.) render as exact 24-bit true color.
-    Any other single-word string still gets a deterministic, distinct
-    color via a hash into the 256-color palette, so no valid color
-    value is ever silently dropped.
-    """
-    if not name:
-        return "\033[0m"
-    key = name.lower()
-    try:
-        r, g, b = webcolors.name_to_rgb(key)
-        return f"\033[38;2;{r};{g};{b}m"
-    except ValueError:
-        code_256 = 16 + (zlib.crc32(key.encode()) % 216)
-        return f"\033[38;5;{code_256}m"
 
 
 class SimulationEngine:
@@ -96,6 +75,19 @@ class SimulationEngine:
             else:
                 self.stats.update_zone(drone.current_zone, 1)
 
+    @staticmethod
+    def _color_code(name: str | None) -> str:
+        """Resolves a color name to an ANSI escape code."""
+        if not name:
+            return "\033[0m"
+        key = name.lower()
+        try:
+            r, g, b = webcolors.name_to_rgb(key)
+            return f"\033[38;2;{r};{g};{b}m"
+        except ValueError:
+            code_256 = 16 + (zlib.crc32(key.encode()) % 216)
+            return f"\033[38;5;{code_256}m"
+
     def print_turn_summary(self) -> None:
         """Prints the simulation state for the current turn."""
         sim_output = []
@@ -105,8 +97,8 @@ class SimulationEngine:
                 if dest is None:
                     continue
                 dest_obj = self.stats.graph.get_zone(dest)
-                code = _color_code(getattr(dest_obj, "color", None))
-                if dest_obj.zone_type == "restricted":
+                code = self._color_code(getattr(dest_obj, "color", None))
+                if dest_obj.zone_type == "restricted" and drone.transit_timer > 1:
                     output_str = f"{drone.name}-{drone.current_zone}-{dest}"
                 else:
                     output_str = f"{drone.name}-{dest}"

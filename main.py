@@ -1,46 +1,54 @@
 import sys
-
+from typing import Optional
 from graph import Graph
 from parser import Parser, ParserError
 from reservations import ReservationTable
 from simulationengine import SimulationEngine
 from simulationstats import Drone, SimulationState
 from Timespacerouter import TimeSpaceRouter
+from models import MapData
 
 
-def main() -> None:
-    """Parses the map, plans every drone's route with the time-space
-    router, and runs the turn-by-turn simulation to completion."""
-    if len(sys.argv) != 2:
-        print("Usage: python fly-in.py <map_file>")
-        sys.exit(1)
+class DroneSimulationApp:
+    """Main application controller for setting up
+    and running the simulation."""
 
-    try:
-        parser = Parser(sys.argv[1])
-        map_data = parser.parse()
-    except (ParserError, FileNotFoundError) as exc:
-        print(f"Error parsing map: {exc}", file=sys.stderr)
-        sys.exit(1)
+    def __init__(self, map_file: str) -> None:
+        """Initializes the application with the target map file."""
+        self.map_file: str = map_file
+        self.graph: Optional[Graph] = None
+        self.map_data: Optional[MapData] = None
+        self.drones: list[Drone] = []
 
-    graph = Graph(map_data)
-    state = SimulationState(graph)
+    def load_map(self) -> None:
+        """Parses the map file and builds the graph."""
+        try:
+            parser = Parser(self.map_file)
+            self.map_data = parser.parse()
+            self.graph = Graph(self.map_data)
+        except (ParserError, FileNotFoundError) as exc:
+            print(f"Error parsing map: {exc}", file=sys.stderr)
+            sys.exit(1)
 
-    reservations = ReservationTable()
-    router = TimeSpaceRouter(graph, reservations)
+    def plan_routes(self) -> None:
+        """Plans collision-free routes for all drones using TimeSpaceRouter."""
+        if self.graph is None or self.map_data is None:
+            return
 
-    start_zone = next(z.name for z in map_data.lis_zones if z.is_start)
-    end_zone = next(z.name for z in map_data.lis_zones if z.is_end)
+        reservations = ReservationTable()
+        router = TimeSpaceRouter(self.graph, reservations)
 
-    drones: list[Drone] = []
-    try:
-        for i in range(map_data.nb_drones):
+        start_zone = next(
+            z.name for z in self.map_data.lis_zones if z.is_start
+        )
+        end_zone = next(z.name for z in self.map_data.lis_zones if z.is_end)
+
+        for i in range(self.map_data.nb_drones):
             drone = Drone(f"D{i + 1}", start_zone)
 
             start_turn = 0
-            max_time = len(graph.zones) * 2 + map_data.nb_drones * 2
-            path = router.find_path(
-                start_zone, end_zone, start_turn, max_time
-            )
+            max_time = len(self.graph.zones) * 2 + self.map_data.nb_drones * 2
+            path = router.find_path(start_zone, end_zone, start_turn, max_time)
 
             if path is None:
                 print(
@@ -52,15 +60,35 @@ def main() -> None:
 
             router.commit_path(path)
             drone.path = [zone for zone, _ in path[1:]]
-            drones.append(drone)
+            self.drones.append(drone)
 
-        engine = SimulationEngine(state, drones)
-        print("Running Simulator")
-        engine.run_engine()
-        print(f"Number : {engine.stats.turn_count}")
-    except KeyboardInterrupt:
-        print("\nSimulation interrupted by user.")
+    def run(self) -> None:
+        """Executes the complete simulation workflow."""
+        self.load_map()
+        self.plan_routes()
+
+        if self.graph is None:
+            return
+
+        state = SimulationState(self.graph)
+        engine = SimulationEngine(state, self.drones)
+
+        try:
+            print("Running Simulator")
+            engine.run_engine()
+        except KeyboardInterrupt:
+            print("\nSimulation interrupted by user.")
+
+    @staticmethod
+    def main() -> None:
+        """Entry point for the script."""
+        if len(sys.argv) != 2:
+            print("Usage: python fly-in.py <map_file>")
+            sys.exit(1)
+
+        app = DroneSimulationApp(sys.argv[1])
+        app.run()
 
 
 if __name__ == "__main__":
-    main()
+    DroneSimulationApp.main()

@@ -5,53 +5,55 @@ class ParserError(Exception):
     """Raised when the input map file contains invalid or malformed data."""
 
     def __init__(self, line_number: int, msg: str) -> None:
-        """Initializes the error with the offending line and a message.
-
-        Args:
-            line_number: The 1-indexed line number where the error
-                occurred, or 0 for file-wide validation errors.
-            msg: A human-readable description of what went wrong.
-        """
+        """Initializes the error with the offending line and a message."""
         self.line_number = line_number
         self.msg = msg
         super().__init__(f"Line {line_number}: {msg}")
 
-
+"hub: start 10 20 [color=blue max_drones=2]"
 class Parser:
     """Parses a map file into a MapData object."""
 
     VALID_TYPES = ("normal", "blocked", "restricted", "priority")
 
     def __init__(self, file_path: str) -> None:
-        """Initializes the parser with the path to the map file.
-
-        Args:
-            file_path: Path to the map file to parse.
-        """
+        """Initializes the parser with the path to the map file."""
         self.file_path = file_path
 
+    @staticmethod
+    def _split_metadata(line: str) -> tuple[str, str | None]:
+        """Splits off a trailing [key=value ...] metadata block, if present."""
+        if not line.endswith("]"):
+            return line, None
+
+        open_bracket = line.rfind("[")
+        if open_bracket == -1:
+            return line, None
+
+        content = line[:open_bracket].rstrip()
+        metadata = line[open_bracket + 1:-1]
+        return content, metadata
+
     def parse(self) -> MapData:
-        """Read the map file and build a MapData object.
-
-        Returns:
-            A MapData object containing the number of drones, zones,
-            and connections parsed from the file.
-
-        Raises:
-            ParserError: If any line is invalid or required data is missing.
-        """
+        """Reads the map file line by line
+        and builds a validated MapData object."""
         nb_drones: int = 0
         lis_zones: list[Zone] = []
         lis_connection: list[Connection] = []
+        zone_lines: list[int] = []
+        connection_lines: list[int] = []
         seen_zone_names = set()
-        nb_drone_parsed = False
+        nb_drone_parsed: bool = False
+        last_line: int = 0
 
         with open(self.file_path, "r") as f:
             for i, line in enumerate(f, 1):
+                last_line = i
                 line = line.strip()
                 if line.startswith("#"):
                     continue
-                if line.startswith("nb_drones"):
+                keyword = line.split(":", 1)[0].strip()
+                if keyword == "nb_drones":
                     if nb_drone_parsed:
                         raise ParserError(i, "duplicate nb_drones line")
                     nb_drone_parsed = True
@@ -71,63 +73,53 @@ class Parser:
                         raise ParserError(
                             i, f"invalid number of drones '{nb_drones}'"
                         )
-                elif line.startswith(("hub", "start_hub", "end_hub")):
+                elif keyword in ("hub", "start_hub", "end_hub"):
                     if not nb_drone_parsed:
                         raise ParserError(
                             i, "nb_drones must be defined before any "
                             "zone line"
                         )
-                    zone = self.parse_zone_line(line, i)
+                    zone = self.parse_zone_line(line, keyword, i)
                     if zone.name in seen_zone_names:
                         raise ParserError(
                             i, f"duplicate zone name '{zone.name}'"
                         )
                     seen_zone_names.add(zone.name)
                     lis_zones.append(zone)
+                    zone_lines.append(i)
 
-                elif line.startswith("connection"):
+                elif keyword == "connection":
                     if not nb_drone_parsed:
                         raise ParserError(
                             i, "nb_drones must be defined before any "
                             "connection line"
                         )
                     lis_connection.append(self.parse_connection_line(line, i))
+                    connection_lines.append(i)
                 elif line:
                     raise ParserError(i, f"unrecognized line '{line}'")
 
-        self.validate(lis_zones, lis_connection)
+        self.validate(
+            lis_zones, lis_connection, zone_lines, connection_lines, last_line
+        )
 
         return MapData(nb_drones, lis_zones, lis_connection)
 
-    def parse_zone_line(self, line: str, line_number: int) -> Zone:
-        """Parse a single zone definition line into a Zone object.
+    def parse_zone_line(
+        self, line: str, keyword: str, line_number: int
+    ) -> Zone:
+        """Parses a single zone definition line
+        and its metadata into a Zone object."""
+        zone_type: str = "normal"
+        color: str | None = None
+        max_drones: int = 1
 
-        Args:
-            line: The stripped line of text to parse.
-            line_number: The line number, used for error reporting.
+        is_start: bool = keyword == "start_hub"
+        is_end: bool = keyword == "end_hub"
 
-        Returns:
-            A Zone object built from the line's data.
+        content, metadata_str = self._split_metadata(line)
 
-        Raises:
-            ParserError: If the zone type or max_drones value is invalid.
-        """
-        zone_type = "normal"
-        color = None
-        max_drones = 1
-
-        is_start = line.startswith("start_hub")
-        is_end = line.startswith("end_hub")
-
-        if ("[" in line) != ("]" in line):
-            raise ParserError(line_number, "invalid metadata format")
-        if line.count("[") > 1 or line.count("]") > 1:
-            raise ParserError(
-                line_number, "multiple metadata blocks not allowed"
-            )
-
-        parts = line.split("[")
-        colon_parts = parts[0].split(":")
+        colon_parts = content.split(":", 1)
         if len(colon_parts) < 2:
             raise ParserError(line_number, f"invalid zone line '{line}'")
         main = colon_parts[1].split()
@@ -135,7 +127,7 @@ class Parser:
         if len(main) != 3:
             raise ParserError(
                 line_number, f"expected '<name> <x> <y>', "
-                f"got '{parts[0].strip()}'"
+                f"got '{colon_parts[1].strip()}'"
             )
 
         name = main[0]
@@ -148,9 +140,8 @@ class Parser:
                 line_number, "invalid data, coordinate must be integer"
             )
 
-        if len(parts) > 1:
-            metadata = parts[1].rstrip("]\n").split()
-            for item in metadata:
+        if metadata_str:
+            for item in metadata_str.split():
                 pieces = item.split("=")
                 if len(pieces) != 2 or not pieces[0] or not pieces[1]:
                     raise ParserError(
@@ -187,29 +178,13 @@ class Parser:
         return Zone(name, x, y, zone_type, max_drones, is_start, is_end, color)
 
     def parse_connection_line(self, line: str, line_number: int) -> Connection:
-        """Parse a single connection definition line into a Connection object.
-
-        Args:
-            line: The stripped line of text to parse.
-            line_number: The line number, used for error reporting.
-
-        Returns:
-            A Connection object built from the line's data.
-
-        Raises:
-            ParserError: If the max_link_capacity value is invalid.
-        """
+        """Parses a single connection definition line
+        and its metadata into a Connection object."""
         max_link_capacity = 1
 
-        if ("[" in line) != ("]" in line):
-            raise ParserError(line_number, "invalid metadata format")
-        if line.count("[") > 1 or line.count("]") > 1:
-            raise ParserError(
-                line_number, "multiple metadata blocks not allowed"
-            )
+        content, metadata_str = self._split_metadata(line)
 
-        parts = line.split("[")
-        colon_parts = parts[0].split(":")
+        colon_parts = content.split(":", 1)
         if len(colon_parts) < 2:
             raise ParserError(line_number, f"invalid connection line '{line}'")
         zones_part = colon_parts[1].strip().split("-")
@@ -230,8 +205,8 @@ class Parser:
                 line_number, f"self-connection not allowed '{zone_1}-{zone_2}'"
             )
 
-        if len(parts) > 1:
-            meta = parts[1].rstrip("]\n").strip()
+        if metadata_str:
+            meta = metadata_str.strip()
             pieces = meta.split("=")
             if (
                 len(pieces) != 2 or
@@ -258,49 +233,65 @@ class Parser:
         return Connection(zone_1, zone_2, max_link_capacity)
 
     def validate(
-        self, zones: list[Zone], connections: list[Connection]
+        self,
+        zones: list[Zone],
+        connections: list[Connection],
+        zone_lines: list[int],
+        connection_lines: list[int],
+        last_line: int,
     ) -> None:
-        """Validate cross-references and counts across the whole parsed map.
+        """Validates cross-references, ensures unique
+        connections, and verifies start/end hub counts.
+        `zone_lines`/`connection_lines` give the source line number for
+        each entry in `zones`/`connections` (same order, same index), so
+        every error raised here can point at a real line."""
+        seen_connections: dict[tuple[str, str], int] = {}
 
-        Args:
-            zones: All parsed zones.
-            connections: All parsed connections.
+        zone_names = {zone.name for zone in zones}
 
-        Raises:
-            ParserError: If start/end zone counts are wrong, or a connection
-                references a zone that does not exist.
-        """
-        seen_connections: set[tuple[str, str]] = set()
+        for connection, line_number in zip(connections, connection_lines):
+            if connection.zone_1 not in zone_names:
+                raise ParserError(
+                    line_number, f"invalid zone name '{connection.zone_1}'"
+                )
+            if connection.zone_2 not in zone_names:
+                raise ParserError(
+                    line_number, f"invalid zone name '{connection.zone_2}'"
+                )
 
-        for connection in connections:
             a, b = sorted((connection.zone_1, connection.zone_2))
             pair = (a, b)
 
             if pair in seen_connections:
                 raise ParserError(
-                    0, f"duplicate connection "
+                    line_number, f"duplicate connection "
                     f"'{connection.zone_1}-{connection.zone_2}'"
                 )
 
-            seen_connections.add(pair)
+            seen_connections[pair] = line_number
 
-        start_count = sum(zone.is_start for zone in zones)
-        end_count = sum(zone.is_end for zone in zones)
+        start_lines = [
+            line for zone, line in zip(zones, zone_lines) if zone.is_start
+        ]
+        end_lines = [
+            line for zone, line in zip(zones, zone_lines) if zone.is_end
+        ]
 
-        if start_count != 1:
+        if len(start_lines) == 0:
             raise ParserError(
-                0, f"expected 1 start_hub, found '{start_count}'"
+                last_line, "expected 1 start_hub, found '0'"
             )
-        if end_count != 1:
-            raise ParserError(0, f"expected 1 end_hub, found '{end_count}'")
-
-        zone_names = {zone.name for zone in zones}
-        for connection in connections:
-            if connection.zone_1 not in zone_names:
-                raise ParserError(
-                    0, f"invalid zone name '{connection.zone_1}'"
-                )
-            if connection.zone_2 not in zone_names:
-                raise ParserError(
-                    0, f"invalid zone name '{connection.zone_2}'"
-                )
+        if len(start_lines) > 1:
+            raise ParserError(
+                start_lines[1],
+                f"expected 1 start_hub, found '{len(start_lines)}'"
+            )
+        if len(end_lines) == 0:
+            raise ParserError(
+                last_line, "expected 1 end_hub, found '0'"
+            )
+        if len(end_lines) > 1:
+            raise ParserError(
+                end_lines[1],
+                f"expected 1 end_hub, found '{len(end_lines)}'"
+            )

@@ -6,12 +6,7 @@ class Graph:
     graph with zones and bidirectional connections."""
 
     def __init__(self, map_data: MapData) -> None:
-        """Initializes the graph from MapData.
-
-        Args:
-            map_data: The parsed MapData object
-            containing zones and connections.
-        """
+        """Initializes the graph from MapData."""
         self.zones: dict[str, Zone] = {
             zone.name: zone for zone in map_data.lis_zones
             }
@@ -29,6 +24,6 @@ class Graph:
         return self.zones[name]
 
     def get_neighbors(self, name: str) -> list[Connection]:
-        """Returns a list of all connections
-        connected to the given zone name."""
+        """Returns a list of all connections connected to
+        the given zone name."""
         return self.adjacency.get(name, [])

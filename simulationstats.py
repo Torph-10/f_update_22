@@ -28,6 +28,7 @@ class SimulationState:
     """Tracks the occupancy of all zones and connections turn-by-turn."""
 
     def __init__(self, graph: Graph) -> None:
+        """Initializes the simulation state with the given map graph."""
         self.graph: Graph = graph
         self.turn_count: int = 0
 
