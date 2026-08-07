@@ -10,7 +10,7 @@ class ParserError(Exception):
         self.msg = msg
         super().__init__(f"Line {line_number}: {msg}")
 
-"hub: start 10 20 [color=blue max_drones=2]"
+
 class Parser:
     """Parses a map file into a MapData object."""
 
@@ -58,7 +58,7 @@ class Parser:
                         raise ParserError(i, "duplicate nb_drones line")
                     nb_drone_parsed = True
                     tokens = line.split(":")
-                    if len(tokens) < 2 or not tokens[1].strip():
+                    if len(tokens) != 2 or not tokens[1].strip():
                         raise ParserError(
                             i, f"invalid nb_drones line '{line}'")
                     try:
