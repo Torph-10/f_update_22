@@ -1,7 +1,7 @@
 .PHONY: install run debug clean lint lint-strict
 
 install:
-	uv sync
+	@uv sync
 
 run:
 	@uv run python3 main.py map.txt
@@ -13,8 +13,8 @@ clean:
 	@rm -rf .venv
 
 lint:
-	flake8 .
-	mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+	@flake8 .
+	@mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 
 debug:
-	uv run python3 -m pdb main.py
+	@uv run python3 -m pdb main.py
