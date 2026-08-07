@@ -98,7 +98,10 @@ class SimulationEngine:
                     continue
                 dest_obj = self.stats.graph.get_zone(dest)
                 code = self._color_code(getattr(dest_obj, "color", None))
-                if dest_obj.zone_type == "restricted" and drone.transit_timer > 1:
+                if (
+                    dest_obj.zone_type == "restricted"
+                    and drone.transit_timer > 1
+                ):
                     output_str = f"{drone.name}-{drone.current_zone}-{dest}"
                 else:
                     output_str = f"{drone.name}-{dest}"

@@ -62,39 +62,23 @@ class DroneSimulationApp:
             drone.path = [zone for zone, _ in path[1:]]
             self.drones.append(drone)
 
-    def run(self) -> None:
-        """Executes the complete simulation workflow."""
-        self.load_map()
-        self.plan_routes()
-
-        if self.graph is None:
-            return
-
-        state = SimulationState(self.graph)
-        engine = SimulationEngine(state, self.drones)
-
-        try:
-            print("Running Simulator")
-            engine.run_engine()
-        except KeyboardInterrupt:
-            print("\nSimulation interrupted by user.")
-
-    def main(self) -> None:
+    @staticmethod
+    def main() -> None:
         """Executes the complete simulation workflow."""
         if len(sys.argv) != 2:
             print("Usage: python fly-in.py <map_file>")
             sys.exit(1)
 
         app = DroneSimulationApp(sys.argv[1])
-        self.load_map()
-        self.plan_routes()
-        
-        if self.graph is None:
+        app.load_map()
+        app.plan_routes()
+
+        if app.graph is None:
             return
 
-        state = SimulationState(self.graph)
-        engine = SimulationEngine(state, self.drones)
-     
+        state = SimulationState(app.graph)
+        engine = SimulationEngine(state, app.drones)
+
         try:
             print("Running Simulator")
             engine.run_engine()
