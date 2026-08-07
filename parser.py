@@ -37,6 +37,7 @@ class Parser:
     def parse(self) -> MapData:
         """Reads the map file line by line
         and builds a validated MapData object."""
+
         nb_drones: int = 0
         lis_zones: list[Zone] = []
         lis_connection: list[Connection] = []
@@ -58,7 +59,7 @@ class Parser:
                         raise ParserError(i, "duplicate nb_drones line")
                     nb_drone_parsed = True
                     tokens = line.split(":")
-                    if len(tokens) != 2 or not tokens[1].strip():
+                    if len(tokens) < 2 or not tokens[1].strip():
                         raise ParserError(
                             i, f"invalid nb_drones line '{line}'")
                     try:

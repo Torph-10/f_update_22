@@ -79,15 +79,27 @@ class DroneSimulationApp:
         except KeyboardInterrupt:
             print("\nSimulation interrupted by user.")
 
-    @staticmethod
-    def main() -> None:
-        """Entry point for the script."""
+    def main(self) -> None:
+        """Executes the complete simulation workflow."""
         if len(sys.argv) != 2:
             print("Usage: python fly-in.py <map_file>")
             sys.exit(1)
 
         app = DroneSimulationApp(sys.argv[1])
-        app.run()
+        self.load_map()
+        self.plan_routes()
+        
+        if self.graph is None:
+            return
+
+        state = SimulationState(self.graph)
+        engine = SimulationEngine(state, self.drones)
+     
+        try:
+            print("Running Simulator")
+            engine.run_engine()
+        except KeyboardInterrupt:
+            print("\nSimulation interrupted by user.")
 
 
 if __name__ == "__main__":

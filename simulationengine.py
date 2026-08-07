@@ -111,7 +111,7 @@ class SimulationEngine:
     def run_engine(self) -> None:
         """Main execution loop."""
         while not self.is_simulation_complete():
-            self.stats.turn_count += 1
             self.process_arriving_drones()
             self.process_departing_drones()
             self.print_turn_summary()
+            self.stats.turn_count += 1
